@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>口袋記帳本 (支援匯出版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col max-w-md mx-auto shadow-2xl relative pb-24">
+
+    <div class="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-6 rounded-b-[2.5rem] shadow-lg">
+        <div class="flex justify-between items-center mb-3">
+            <h1 class="text-xl font-bold tracking-wide">我的口袋記帳</h1>
+            <div class="flex gap-2">
+                <button onclick="exportToCSV()" class="text-xs bg-emerald-500/80 hover:bg-emerald-500 px-2 py-1 rounded-md transition font-medium">📥 匯出資料</button>
+                <button onclick="clearAllData()" class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded-md transition text-slate-200">清空</button>
+            </div>
+        </div>
+
+        <div class="flex bg-white/10 p-1 rounded-xl mb-4 text-xs">
+            <button id="filter-all" onclick="setPeriod('all')" class="flex-1 py-1.5 rounded-lg font-medium bg-white text-indigo-700 transition">全部</button>
+            <button id="filter-month" onclick="setPeriod('month')" class="flex-1 py-1.5 rounded-lg font-medium transition">本月</button>
+            <button id="filter-year" onclick="setPeriod('year')" class="flex-1 py-1.5 rounded-lg font-medium transition">今年</button>
+        </div>
+
+        <p class="text-xs text-indigo-200 uppercase tracking-widest" id="balance-title">總結餘</p>
+        <div class="text-3xl font-bold mt-1" id="total-balance">$ 0</div>
+        
+        <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/20">
+            <div>
+                <p class="text-xs text-indigo-200">收入</p>
+                <p class="text-lg font-bold text-emerald-300" id="total-income">+$ 0</p>
+            </div>
+            <div class="border-l border-white/20 pl-4">
+                <p class="text-xs text-indigo-200">支出</p>
+                <p class="text-lg font-bold text-rose-300" id="total-expense">-$ 0</p>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-1 p-5 overflow-y-auto">
+        
+        <div id="page-add" class="space-y-4">
+            <h2 class="text-gray-800 font-bold text-lg">新增一筆帳目</h2>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button id="type-expense" onclick="changeType('expense')" class="py-3 rounded-2xl font-bold text-center border-2 border-rose-500 bg-rose-50 text-rose-600 transition">
+                    💸 支出
+                </button>
+                <button id="type-income" onclick="changeType('income')" class="py-3 rounded-2xl font-bold text-center border-2 border-gray-200 bg-white text-gray-500 transition">
+                    💰 收入
+                </button>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm space-y-4 border border-gray-100">
+                <div>
+                    <label class="text-xs text-gray-400 font-medium block mb-1">金額 (NTD)</label>
+                    <input type="number" id="input-amount" inputmode="numeric" placeholder="請輸入金額" class="w-full text-xl font-bold p-3 bg-gray-50 rounded-xl border border-gray-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 font-medium block mb-1">項目名稱</label>
+                    <input type="text" id="input-title" placeholder="例如：午餐、薪水" class="w-full p-3 bg-gray-50 rounded-xl border border-gray-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <button onclick="addRecord()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-md transition active:scale-[0.98]">
+                    儲存此筆帳目
+                </button>
+            </div>
+        </div>
+
+        <div id="page-list" class="space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="text-gray-800 font-bold text-lg" id="list-title">明細紀錄</h2>
+                <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-medium" id="record-count">0 筆紀錄</span>
+            </div>
+            
+            <div id="history-container" class="space-y-3">
+                <p class="text-center text-sm text-gray-400 py-10">尚無任何記帳紀錄喔！</p>
+            </div>
+        </div>
+
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] grid grid-cols-2 py-2">
+        <button id="nav-add" onclick="switchPage('add')" class="flex flex-col items-center justify-center text-indigo-600 font-medium py-1">
+            <span class="text-xl">✏️</span>
+            <span class="text-xs mt-0.5">記一筆</span>
+        </button>
+        <button id="nav-list" onclick="switchPage('list')" class="flex flex-col items-center justify-center text-gray-400 font-medium py-1">
+            <span class="text-xl">📋</span>
+            <span class="text-xs mt-0.5">查明細</span>
+        </button>
+    </nav>
+
+    <script>
+        let records = JSON.parse(localStorage.getItem('my_wallet_records')) || [];
+        let currentType = 'expense'; 
+        let currentPeriod = 'all'; 
+
+        window.onload = function() {
+            updateUI();
+        };
+
+        function getFilteredRecords() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+
+            return records.filter(item => {
+                if (!item.year || !item.month) return currentPeriod === 'all'; 
+                
+                if (currentPeriod === 'month') {
+                    return item.year === currentYear && item.month === currentMonth;
+                } else if (currentPeriod === 'year') {
+                    return item.year === currentYear;
+                }
+                return true; 
+            });
+        }
+
+        // 新增功能：匯出成 CSV 檔案
+        function exportToCSV() {
+            if (records.length === 0) {
+                alert('目前沒有任何記帳資料可以匯出喔！');
+                return;
+            }
+
+            // 1. 定義 CSV 的標頭 (加上 BOM 確保 Excel 打開不會變亂碼)
+            let csvContent = "\uFEFF"; 
+            csvContent += "日期時間,年,月,類型,項目名稱,金額(元)\n";
+
+            // 2. 將每筆資料轉換成 CSV 格式的列
+            records.forEach(item => {
+                const typeText = item.type === 'expense' ? '支出' : '收入';
+                // 項目名稱如果有逗號要處理，這裡做個簡單的替換防止表格錯格
+                const cleanTitle = item.title.replace(/,/g, ' '); 
+                
+                csvContent += `"${item.year}/${item.date}",${item.year},${item.month},"${typeText}","${cleanTitle}",${item.amount}\n`;
+            });
+
+            // 3. 建立 Blob 物件並觸發瀏覽器下載
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", "口袋記帳本_備份.csv");
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        function setPeriod(period) {
+            currentPeriod = period;
+            const buttons = ['all', 'month', 'year'];
+            buttons.forEach(p => {
+                const btn = document.getElementById(`filter-${p}`);
+                if (p === period) {
+                    btn.className = "flex-1 py-1.5 rounded-lg font-medium bg-white text-indigo-700 transition";
+                } else {
+                    btn.className = "flex-1 py-1.5 rounded-lg font-medium text-white hover:bg-white/10 transition";
+                }
+            });
+
+            const titleMap = { 'all': '總結餘', 'month': '本月結餘', 'year': '今年結餘' };
+            const listTitleMap = { 'all': '全部明細', 'month': '本月明細', 'year': '今年明細' };
+            document.getElementById('balance-title').innerText = titleMap[period];
+            document.getElementById('list-title').innerText = listTitleMap[period];
+
+            updateUI();
+            if(!document.getElementById('page-list').classList.contains('hidden')) {
+                renderHistory();
+            }
+        }
+
+        function changeType(type) {
+            currentType = type;
+            const expenseBtn = document.getElementById('type-expense');
+            const incomeBtn = document.getElementById('type-income');
+            if(type === 'expense') {
+                expenseBtn.className = "py-3 rounded-2xl font-bold text-center border-2 border-rose-500 bg-rose-50 text-rose-600 transition";
+                incomeBtn.className = "py-3 rounded-2xl font-bold text-center border-2 border-gray-200 bg-white text-gray-500 transition";
+            } else {
+                expenseBtn.className = "py-3 rounded-2xl font-bold text-center border-2 border-gray-200 bg-white text-gray-500 transition";
+                incomeBtn.className = "py-3 rounded-2xl font-bold text-center border-2 border-emerald-500 bg-emerald-50 text-emerald-600 transition";
+            }
+        }
+
+        function switchPage(page) {
+            const pageAdd = document.getElementById('page-add');
+            const pageList = document.getElementById('page-list');
+            const navAdd = document.getElementById('nav-add');
+            const navList = document.getElementById('nav-list');
+
+            if(page === 'add') {
+                pageAdd.classList.remove('hidden');
+                pageList.classList.add('hidden');
+                navAdd.className = "flex flex-col items-center justify-center text-indigo-600 font-medium py-1";
+                navList.className = "flex flex-col items-center justify-center text-gray-400 font-medium py-1";
+            } else {
+                pageAdd.classList.add('hidden');
+                pageList.classList.remove('hidden');
+                navAdd.className = "flex flex-col items-center justify-center text-gray-400 font-medium py-1";
+                navList.className = "flex flex-col items-center justify-center text-indigo-600 font-medium py-1";
+                renderHistory(); 
+            }
+        }
+
+        function addRecord() {
+            const amountInput = document.getElementById('input-amount');
+            const titleInput = document.getElementById('input-title');
+            const amount = parseFloat(amountInput.value);
+            const title = titleInput.value.trim();
+
+            if(!amount || amount <= 0) { alert('請輸入正確的金額喔！'); return; }
+            if(!title) { alert('請輸入項目名稱'); return; }
+
+            const now = new Date();
+
+            const newRecord = {
+                id: Date.now(),
+                type: currentType,
+                amount: amount,
+                title: title,
+                year: now.getFullYear(),
+                month: now.getMonth() + 1,
+                date: now.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }) + " " + now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+            };
+
+            records.unshift(newRecord);
+            localStorage.setItem('my_wallet_records', JSON.stringify(records));
+
+            amountInput.value = '';
+            titleInput.value = '';
+
+            updateUI();
+            alert('🎉 記帳成功！');
+        }
+
+        function deleteRecord(id) {
+            if(confirm('確定要刪除這筆紀錄嗎？')) {
+                records = records.filter(item => item.id !== id);
+                localStorage.setItem('my_wallet_records', JSON.stringify(records));
+                updateUI();
+                renderHistory();
+            }
+        }
+
+        function clearAllData() {
+            if(confirm('⚠️ 注意：這會刪除你手機內所有的記帳歷史，確定嗎？')) {
+                records = [];
+                localStorage.removeItem('my_wallet_records');
+                updateUI();
+                renderHistory();
+            }
+        }
+
+        function updateUI() {
+            let totalIncome = 0;
+            let totalExpense = 0;
+            const filtered = getFilteredRecords();
+
+            filtered.forEach(item => {
+                if(item.type === 'income') totalIncome += item.amount;
+                if(item.type === 'expense') totalExpense += item.amount;
+            });
+
+            const balance = totalIncome - totalExpense;
+
+            document.getElementById('total-balance').innerText = `$ ${balance.toLocaleString()}`;
+            document.getElementById('total-income').innerText = `+$ ${totalIncome.toLocaleString()}`;
+            document.getElementById('total-expense').innerText = `-$ ${totalExpense.toLocaleString()}`;
+            document.getElementById('record-count').innerText = `${filtered.length} 筆紀錄`;
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            const filtered = getFilteredRecords();
+
+            if(filtered.length === 0) {
+                container.innerHTML = `<p class="text-center text-sm text-gray-400 py-10">這個區間內還沒有記帳紀錄喔！</p>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const isExpense = item.type === 'expense';
+                return `
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-base ${isExpense ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'}">
+                                ${isExpense ? '💸' : '💰'}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-800 text-sm">${item.title}</h4>
+                                <p class="text-[10px] text-gray-400 mt-0.5">${item.year}/${item.date}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-base ${isExpense ? 'text-rose-500' : 'text-emerald-500'}">
+                                ${isExpense ? '-' : '+'}$${item.amount.toLocaleString()}
+                            </span>
+                            <button onclick="deleteRecord(${item.id})" class="text-gray-300 hover:text-rose-400 p-1 text-sm transition">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
